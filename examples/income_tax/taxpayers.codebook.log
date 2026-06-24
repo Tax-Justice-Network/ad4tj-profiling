@@ -1,0 +1,89 @@
+============================================================================
+AD4TJ DISCLOSURE-SAFE CODEBOOK
+============================================================================
+Dataset      : taxpayers.csv
+Source file  : examples/income_tax/taxpayers.csv
+Rows         : 4000
+Columns      : 4
+
+Disclosure-control rules applied to this log:
+  - counts below 10 are suppressed
+  - numeric summaries rounded to 3 significant figures
+  - exact minimum and maximum values are NEVER released
+  - category values listed only when distinct count <= 20
+  - identifier / high-cardinality column values are not listed
+
+This file contains NO individual-level data points. The data lab must
+still review it against local disclosure policy before release.
+============================================================================
+
+----------------------------------------------------------------------------
+VARIABLE: taxpayer_id
+  kind            : identifier
+  storage dtype   : int64
+  non-missing     : 4000
+  missing         : 0 (0.0%)
+  distinct values : 4000
+  unique per row  : True
+  note            : High-cardinality / identifier-like column: individual values NOT listed.
+----------------------------------------------------------------------------
+VARIABLE: birth_year
+  kind            : numeric
+  storage dtype   : int64
+  non-missing     : 4000
+  missing         : 0 (0.0%)
+  integer-valued  : True
+  # zero          : 0
+  # negative      : 0
+  # positive      : 4000
+  mean (rounded)  : 1980.0
+  sd (rounded)    : 14.9
+  approx range    : 1940.0 .. 2010.0  (rounded p1-p99)
+  quantiles       : p1=1940.0  p5=1950.0  p10=1960.0  p25=1960.0  p50=1980.0  p75=1990.0  p90=2000.0  p95=2000.0  p99=2010.0
+  note            : Exact min/max withheld; range shown is rounded p1-p99. All numeric summaries rounded to 3 significant figures.
+----------------------------------------------------------------------------
+VARIABLE: region_code
+  kind            : numeric
+  storage dtype   : int64
+  non-missing     : 4000
+  missing         : 0 (0.0%)
+  integer-valued  : True
+  # zero          : 0
+  # negative      : 0
+  # positive      : 4000
+  looks coded     : yes (few distinct integer values - likely a code list)
+  distinct values : 5
+  value counts    :
+                       '1' : 1181
+                       '2' : 807
+                       '3' : 790
+                       '5' : 615
+                       '4' : 607
+  mean (rounded)  : 2.67
+  sd (rounded)    : 1.43
+  approx range    : 1.0 .. 5.0  (rounded p1-p99)
+  quantiles       : p1=1.0  p5=1.0  p10=1.0  p25=1.0  p50=3.0  p75=4.0  p90=5.0  p95=5.0  p99=5.0
+  note            : Exact min/max withheld; range shown is rounded p1-p99. All numeric summaries rounded to 3 significant figures.
+----------------------------------------------------------------------------
+VARIABLE: sex
+  kind            : numeric
+  storage dtype   : int64
+  non-missing     : 4000
+  missing         : 0 (0.0%)
+  integer-valued  : True
+  # zero          : 0
+  # negative      : 0
+  # positive      : 4000
+  looks coded     : yes (few distinct integer values - likely a code list)
+  distinct values : 2
+  value counts    :
+                       '1' : 2004
+                       '2' : 1996
+  mean (rounded)  : 1.5
+  sd (rounded)    : 0.5
+  approx range    : 1.0 .. 2.0  (rounded p1-p99)
+  quantiles       : p1=1.0  p5=1.0  p10=1.0  p25=1.0  p50=1.0  p75=2.0  p90=2.0  p95=2.0  p99=2.0
+  note            : Exact min/max withheld; range shown is rounded p1-p99. All numeric summaries rounded to 3 significant figures.
+----------------------------------------------------------------------------
+
+END OF CODEBOOK
