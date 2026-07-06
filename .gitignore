@@ -6,3 +6,6 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+
+# Stata batch logs (root level); example codebooks under examples/ are kept
+/*.log

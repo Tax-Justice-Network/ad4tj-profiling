@@ -146,12 +146,15 @@ pytest        # parser/classifier/disclosure-safety tests
 ruff check .
 ```
 
-The Python implementation is the tested reference. The **R and Stata scripts are
-written to mirror it exactly** (same thresholds, same `quantile`/percentile
-definition, same suppression and log layout) and have been reviewed against it;
-they have not yet been executed in this repo's CI because R and Stata are not
-installed here. Validating them on a real Stata/R install in a lab environment is
-a recommended next step before production use.
+The Python implementation is the tested reference. The **Stata script has been
+run on both CSV and `.dta` inputs** (StataBE) and produces an equivalent codebook
+with the same classification and suppression; minor cosmetic differences (Stata
+prints `1`/`0` for booleans and drops trailing `.0`) and a small percentile-rule
+difference (`summarize, detail` vs numpy) are expected and do not affect the
+disclosure guarantees. The **R script mirrors the reference** (same thresholds,
+`quantile type=7` = numpy's linear interpolation, same layout) and has been
+reviewed against it, but has not yet been executed here because R is not
+installed. Validating it on a real R install is a recommended next step.
 
 ## Status
 

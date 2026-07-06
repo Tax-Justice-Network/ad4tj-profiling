@@ -43,6 +43,10 @@ global MAX_CATEGORIES       20    // list category values only if distinct <= th
 global ID_LIKE_UNIQUE_RATIO 0.9   // distinct/non-missing above this => identifier
 * ===========================================================================
 
+* Optional: pass the data path as an argument instead of editing the block above
+*   do profile_dataset.do "C:/path/to/mydata.dta"
+if (`"`1'"' != "") global DATA_PATH `"`1'"'
+
 
 * ---------------------------------------------------------------------------
 * Helper programs  (must be defined before they are used)
