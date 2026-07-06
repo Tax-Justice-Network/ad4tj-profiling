@@ -73,16 +73,21 @@ inferred from the data alone (no external documentation is required).
 |------|---------------|----------------|
 | `numeric` | numeric, not identifier-like | integer-valued flag; # zero / # negative / # positive (suppressed); mean, sd (rounded); rounded quantiles p1–p99; approx range (rounded p1–p99) |
 | `numeric` (coded) | numeric, integer-valued, ≤ `MAX_CATEGORIES` distinct | as numeric, **plus** a suppressed value-count table; flagged `looks coded` |
-| `categorical` | non-numeric, < identifier threshold | distinct count; suppressed value-count table |
+| `categorical` | non-numeric, ≤ `MAX_CATEGORIES` distinct | distinct count; suppressed value-count table |
+| `high_cardinality` | non-numeric, > `MAX_CATEGORIES` distinct but not near-unique | distinct count only; values **never** listed |
 | `boolean` | logical/boolean dtype | # true / # false (suppressed) |
 | `datetime` | date/time dtype | distinct dates; **calendar-year span only** |
-| `identifier` | integer near-unique, **or** non-numeric at/above identifier threshold | distinct count; unique-per-row flag; values **never** listed |
+| `identifier` | integer near-unique, **or** non-numeric near-unique | distinct count; unique-per-row flag; values **never** listed |
 | `empty` | entirely missing | note only |
 
-**Identifier threshold.** A non-numeric column is an identifier when its distinct
-count ≥ `max(MAX_CATEGORIES + 1, ID_LIKE_UNIQUE_RATIO × n_obs)`. A numeric column
-is an identifier when it is integer-valued **and** either fully unique or has a
-distinct/non-missing ratio above `ID_LIKE_UNIQUE_RATIO`.
+**Value-listing rule.** Individual category values are enumerated **only** when a
+column has ≤ `MAX_CATEGORIES` distinct values. A non-numeric column with more
+distinct values is `high_cardinality` (a genuine category, such as an HS product
+code, that is nonetheless too granular to release as a list) unless it is
+near-unique — distinct/non-missing ≥ `ID_LIKE_UNIQUE_RATIO` — in which case it is
+an `identifier` (IDs, names, free text). Neither has its values listed. A numeric
+column is an identifier when it is integer-valued **and** either fully unique or
+has a distinct/non-missing ratio above `ID_LIKE_UNIQUE_RATIO`.
 
 **Coded categoricals.** Integer columns with few distinct values (sex, region,
 filing status, year, …) are almost always code lists. The codebook reports the

@@ -164,9 +164,11 @@ def _classify(series: pd.Series, n_obs: int, cfg: Config) -> str:
         return "numeric"
     # object / category / string
     n_distinct = series.nunique(dropna=True)
-    if n_distinct >= max(cfg.max_categories + 1, cfg.id_like_unique_ratio * n_obs):
-        return "identifier"
-    return "categorical"
+    if n_distinct <= cfg.max_categories:
+        return "categorical"                       # few enough to list safely
+    if n_distinct >= cfg.id_like_unique_ratio * n_obs:
+        return "identifier"                        # (near-)unique: IDs, names, free text
+    return "high_cardinality"                      # a real category, but too many to list
 
 
 def profile_column(series: pd.Series, cfg: Config) -> ColumnReport:
@@ -198,6 +200,8 @@ def profile_column(series: pd.Series, cfg: Config) -> ColumnReport:
         _profile_datetime(nonnull, rep, cfg)
     elif kind == "categorical":
         _profile_categorical(nonnull, rep, cfg)
+    elif kind == "high_cardinality":
+        _profile_high_cardinality(nonnull, rep, cfg)
     elif kind == "identifier":
         _profile_identifier(nonnull, rep, cfg)
     return rep
@@ -287,6 +291,15 @@ def _add_category_counts(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
 
 def _profile_categorical(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
     _add_category_counts(s, rep, cfg)
+
+
+def _profile_high_cardinality(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
+    rep.facts["n_distinct"] = int(s.nunique())
+    rep.notes.append(
+        f"More than {cfg.max_categories} distinct values; individual values NOT "
+        "listed. If the code list is needed, request it separately (subject to lab "
+        "approval)."
+    )
 
 
 def _profile_identifier(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
@@ -417,6 +430,8 @@ def _render_facts(c: ColumnReport, w: Any) -> None:
                 f"      <{sup['n_categories']} rare value(s)> : "
                 f"combined {_fmt(sup['combined_count'])}"
             )
+    elif c.kind == "high_cardinality":
+        w(f"  distinct values : {_fmt(f.get('n_distinct'))}")
     elif c.kind == "identifier":
         w(f"  distinct values : {_fmt(f.get('n_distinct'))}")
         w(f"  unique per row  : {_fmt(f.get('looks_unique'))}")

@@ -99,7 +99,9 @@ program define write_categories
             local sup_total = `sup_total' + `c'
         }
         else {
-            file write `fh' `"      '`l'' : `c'"' _n
+            * strip any double quotes in the value so file write cannot break (r198)
+            local lshow : subinstr local l `"""' "'", all
+            file write `fh' `"      '`lshow'' : `c'"' _n
         }
     }
     if (`n_suppressed' > 0) {
@@ -191,6 +193,8 @@ foreach var of local allvars {
     else local pct = 0
 
     local vlab : variable label `var'
+    * strip any double quotes so file write cannot break (r198) on labels
+    local vlab : subinstr local vlab `"""' "'", all
 
     * distinct count among non-missing (works for numeric and string)
     tempvar tg
@@ -219,11 +223,14 @@ foreach var of local allvars {
         }
     }
     else {
-        if (`nd' >= max($MAX_CATEGORIES + 1, $ID_LIKE_UNIQUE_RATIO * `n_obs')) {
+        if (`nd' <= $MAX_CATEGORIES) {
+            local kind "categorical"
+        }
+        else if (`nd' >= $ID_LIKE_UNIQUE_RATIO * `n_obs') {
             local kind "identifier"
         }
         else {
-            local kind "categorical"
+            local kind "high_cardinality"
         }
     }
 
@@ -289,6 +296,10 @@ foreach var of local allvars {
     else if ("`kind'" == "categorical") {
         file write `fh' "  distinct values : `nd'" _n
         write_categories `var' `fh'
+    }
+    else if ("`kind'" == "high_cardinality") {
+        file write `fh' "  distinct values : `nd'" _n
+        file write `fh' "  note            : More than $MAX_CATEGORIES distinct values; individual values NOT listed. If the code list is needed, request it separately (subject to lab approval)." _n
     }
     else if ("`kind'" == "identifier") {
         file write `fh' "  distinct values : `nd'" _n

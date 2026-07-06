@@ -108,10 +108,9 @@ classify <- function(x, n_obs) {
   # character / factor
   nn <- x[!is.na(x)]
   n_distinct <- length(unique(nn))
-  if (n_distinct >= max(MAX_CATEGORIES + 1, ID_LIKE_UNIQUE_RATIO * n_obs)) {
-    return("identifier")
-  }
-  "categorical"
+  if (n_distinct <= MAX_CATEGORIES) return("categorical")       # few enough to list
+  if (n_distinct >= ID_LIKE_UNIQUE_RATIO * n_obs) return("identifier")  # near-unique
+  "high_cardinality"                                            # real category, too many
 }
 
 add_category_counts <- function(x, rep) {
@@ -207,6 +206,13 @@ profile_column <- function(x, name) {
 
   } else if (kind == "categorical") {
     rep <- add_category_counts(nn, rep)
+
+  } else if (kind == "high_cardinality") {
+    rep$n_distinct <- length(unique(nn))
+    rep$notes <- c(rep$notes, sprintf(paste0(
+      "More than %d distinct values; individual values NOT listed. If the code ",
+      "list is needed, request it separately (subject to lab approval)."),
+      MAX_CATEGORIES))
 
   } else if (kind == "identifier") {
     n_distinct <- length(unique(nn))
@@ -306,6 +312,8 @@ render_facts <- function(c, add) {
     add("  year span       : ", fmt(c$year_min), " .. ", fmt(c$year_max))
   } else if (c$kind == "categorical") {
     render_categories(c, add)
+  } else if (c$kind == "high_cardinality") {
+    add("  distinct values : ", fmt(c$n_distinct))
   } else if (c$kind == "identifier") {
     add("  distinct values : ", fmt(c$n_distinct))
     add("  unique per row  : ", fmt(c$looks_unique))

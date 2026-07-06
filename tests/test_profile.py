@@ -108,6 +108,20 @@ def test_rare_category_value_is_suppressed():
     assert "AA" in log and "BB" in log    # safe categories still shown
 
 
+def test_high_cardinality_values_not_listed():
+    # 200 distinct codes among 2000 rows: a real category, but too many to list.
+    # Not near-unique (so not an identifier), yet must NOT be enumerated.
+    codes = [f"HS{i:04d}" for i in range(200)] * 10
+    s = pd.Series(codes, name="hscode")
+    rep = profile_column(s, Config(max_categories=20))
+    assert rep.kind == "high_cardinality"
+    assert rep.facts["n_distinct"] == 200
+    assert "categories" not in rep.facts
+    log = render_log(profile_dataframe(pd.DataFrame({"hscode": s}), "t", "t"))
+    assert "HS0000" not in log
+    assert "HS0199" not in log
+
+
 def test_identifier_string_values_not_listed():
     s = pd.Series([f"name_{i}" for i in range(500)], name="full_name")
     rep = profile_column(s, Config())
