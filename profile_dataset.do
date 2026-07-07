@@ -212,11 +212,29 @@ foreach var of local allvars {
     capture confirm numeric variable `var'
     local is_numeric = (_rc == 0)
 
+    * detect Stata date/time display formats (a date is a numeric with a %t/%d format)
+    local isdate 0
+    local dtype ""
+    if (`is_numeric') {
+        local dfmt : format `var'
+        if (substr("`dfmt'", 1, 2) == "%t") {
+            local dtype = substr("`dfmt'", 3, 1)
+            if (inlist("`dtype'", "d", "c", "C", "w", "m", "q", "h", "y")) local isdate 1
+        }
+        else if (substr("`dfmt'", 1, 2) == "%d") {
+            local isdate 1
+            local dtype "d"
+        }
+    }
+
     * ---- classify ----
     local kind ""
     local is_int 0
     if (`n_obs' == 0) {
         local kind "empty"
+    }
+    else if (`is_numeric' & `isdate') {
+        local kind "datetime"
     }
     else if (`is_numeric') {
         quietly count if `var' != floor(`var') & !missing(`var')
@@ -251,6 +269,50 @@ foreach var of local allvars {
     * ---- per-kind facts ----
     if ("`kind'" == "empty") {
         file write `fh' "  note            : Column is entirely missing." _n
+    }
+    else if ("`kind'" == "datetime") {
+        file write `fh' "  date format     : `dfmt'" _n
+        file write `fh' "  distinct values : `nd'" _n
+        * coarsen min/max serial to calendar year; exact dates are not released.
+        * (each dof* conversion needs its own multi-line block: Stata forbids
+        *  inline braces like  if (x) { ... }  on a single line.)
+        quietly summarize `var', meanonly
+        local rlo = r(min)
+        local rhi = r(max)
+        if ("`dtype'" == "y") {
+            local ymin = `rlo'
+            local ymax = `rhi'
+        }
+        else if ("`dtype'" == "d") {
+            local ymin = year(`rlo')
+            local ymax = year(`rhi')
+        }
+        else if ("`dtype'" == "c") {
+            local ymin = year(dofc(`rlo'))
+            local ymax = year(dofc(`rhi'))
+        }
+        else if ("`dtype'" == "C") {
+            local ymin = year(dofC(`rlo'))
+            local ymax = year(dofC(`rhi'))
+        }
+        else if ("`dtype'" == "w") {
+            local ymin = year(dofw(`rlo'))
+            local ymax = year(dofw(`rhi'))
+        }
+        else if ("`dtype'" == "m") {
+            local ymin = year(dofm(`rlo'))
+            local ymax = year(dofm(`rhi'))
+        }
+        else if ("`dtype'" == "q") {
+            local ymin = year(dofq(`rlo'))
+            local ymax = year(dofq(`rhi'))
+        }
+        else if ("`dtype'" == "h") {
+            local ymin = year(dofh(`rlo'))
+            local ymax = year(dofh(`rhi'))
+        }
+        file write `fh' "  year span       : `ymin' .. `ymax'" _n
+        file write `fh' "  note            : Date variable; detail reduced to calendar-year span, exact dates not listed." _n
     }
     else if ("`kind'" == "numeric") {
         file write `fh' "  integer-valued  : `is_int'" _n

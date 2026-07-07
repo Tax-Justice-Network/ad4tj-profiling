@@ -72,6 +72,21 @@ def test_continuous_float_stays_numeric():
 # --------------------------------------------------------------------------- #
 # Missingness
 # --------------------------------------------------------------------------- #
+def test_datetime_coarsened_to_year_span():
+    # dates must be reduced to a year span; exact dates must not be listed
+    days = pd.to_datetime("2016-03-01") + pd.to_timedelta(
+        np.random.default_rng(3).integers(0, 1400, size=500), unit="D"
+    )
+    s = pd.Series(days, name="signed_on")
+    rep = profile_column(s, Config())
+    assert rep.kind == "datetime"
+    assert rep.facts["year_min"] == 2016
+    assert rep.facts["year_max"] >= 2019
+    log = render_log(profile_dataframe(pd.DataFrame({"signed_on": s}), "t", "t"))
+    assert "year span" in log
+    assert "2016-03" not in log            # no exact date leaks
+
+
 def test_missing_counts():
     s = pd.Series([1.0, 2.0, np.nan, np.nan, 5.0], name="x")
     rep = profile_column(s, Config(min_cell_count=1))
