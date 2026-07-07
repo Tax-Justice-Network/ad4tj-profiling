@@ -80,8 +80,9 @@ See **[SPEC.md](SPEC.md)** for the codebook format and the normative SDC rules.
 ## Quick start
 
 Pick the file for your language. Each is standalone — there is nothing to learn
-about the format. Edit the **CONFIG block at the top** to point at your data
-file, then run it.
+about the format. Point it at your data file (in Stata you can pass the path
+without editing anything; in Python/R set `DATA_PATH` in the **CONFIG block at
+the top**), then run it.
 
 ### Python (the reference implementation)
 
@@ -101,9 +102,20 @@ Rscript profile_dataset.R
 
 ### Stata
 
+The simplest way — **pass the data path as an argument, without editing the
+script at all** (so the shared file stays pristine and you can call it from your
+own do-file):
+
 ```stata
-* edit DATA_PATH at the top of profile_dataset.do, then:
-do profile_dataset.do
+do profile_dataset.do "/full/path/to/your data.dta"
+```
+
+Paths containing spaces are fine. Or, if you prefer, edit `DATA_PATH` in the
+CONFIG block at the top and run `do profile_dataset.do` with no argument. From a
+terminal you can also run it head-less:
+
+```bash
+stata -b do profile_dataset.do "/full/path/to/your data.dta"
 ```
 
 Each writes `<yourdata>.codebook.log` next to your data file. Supported inputs:
@@ -147,14 +159,17 @@ ruff check .
 ```
 
 The Python implementation is the tested reference. The **Stata script has been
-run on both CSV and `.dta` inputs** (StataBE) and produces an equivalent codebook
-with the same classification and suppression; minor cosmetic differences (Stata
-prints `1`/`0` for booleans and drops trailing `.0`) and a small percentile-rule
-difference (`summarize, detail` vs numpy) are expected and do not affect the
-disclosure guarantees. The **R script mirrors the reference** (same thresholds,
-`quantile type=7` = numpy's linear interpolation, same layout) and has been
-reviewed against it, but has not yet been executed here because R is not
-installed. Validating it on a real R install is a recommended next step.
+run on a range of real datasets** (StataBE) — CSV, `.dta`, and `.xlsx`; files
+with date/quarter variables; and inputs up to 1.3 GB and 1,723 columns — and
+produces an equivalent codebook with the same classification and suppression.
+Minor cosmetic differences (Stata prints `1`/`0` for booleans and drops trailing
+`.0`) and a small percentile-rule difference (`summarize, detail` vs numpy) are
+expected and do not affect the disclosure guarantees. The **R script mirrors the
+reference** (same thresholds, `quantile type=7` = numpy's linear interpolation,
+same layout) and has been reviewed against it, but has **not yet been executed**
+because R was not installed in the test environment — validating it on a real R
+install is a recommended next step. The one code path not yet exercised on real
+data is the `boolean` branch (no `0/1` byte-typed columns encountered).
 
 ## Status
 
