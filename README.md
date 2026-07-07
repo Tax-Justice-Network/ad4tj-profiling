@@ -80,9 +80,8 @@ See **[SPEC.md](SPEC.md)** for the codebook format and the normative SDC rules.
 ## Quick start
 
 Pick the file for your language. Each is standalone — there is nothing to learn
-about the format. Point it at your data file (in Stata you can pass the path
-without editing anything; in Python/R set `DATA_PATH` in the **CONFIG block at
-the top**), then run it.
+about the format. In all three, set `DATA_PATH` in the **CONFIG block at the top**
+to point at your data file, then run it.
 
 ### Python (the reference implementation)
 
@@ -102,21 +101,13 @@ Rscript profile_dataset.R
 
 ### Stata
 
-The simplest way — **pass the data path as an argument, without editing the
-script at all** (so the shared file stays pristine and you can call it from your
-own do-file):
-
 ```stata
-do profile_dataset.do "/full/path/to/your data.dta"
+* edit DATA_PATH at the top of profile_dataset.do, then:
+do profile_dataset.do
 ```
 
-Paths containing spaces are fine. Or, if you prefer, edit `DATA_PATH` in the
-CONFIG block at the top and run `do profile_dataset.do` with no argument. From a
-terminal you can also run it head-less:
-
-```bash
-stata -b do profile_dataset.do "/full/path/to/your data.dta"
-```
+A quoted `DATA_PATH` handles paths containing spaces. From a terminal you can
+also run it head-less: `stata -b do profile_dataset.do`.
 
 Each writes `<yourdata>.codebook.log` next to your data file. Supported inputs:
 CSV, TSV, Excel (`.xlsx`/`.xls`), and Stata `.dta`.

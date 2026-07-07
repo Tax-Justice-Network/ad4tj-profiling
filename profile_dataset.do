@@ -43,16 +43,6 @@ global MAX_CATEGORIES       20    // list category values only if distinct <= th
 global ID_LIKE_UNIQUE_RATIO 0.9   // distinct/non-missing above this => identifier
 * ===========================================================================
 
-* Optional: pass the data path as an argument instead of editing the block above
-*   do profile_dataset.do "C:/path/to/my data.dta"
-* Use the whole argument line (`0'), not the first token (`1'), so that paths
-* containing spaces survive. `local' strips one layer of surrounding quotes if
-* present (GUI: do ... "path"); a bare space-containing path is kept whole.
-if (`"`0'"' != "") {
-    local dpath `0'
-    global DATA_PATH `"`dpath'"'
-}
-
 
 * ---------------------------------------------------------------------------
 * Helper programs  (must be defined before they are used)
