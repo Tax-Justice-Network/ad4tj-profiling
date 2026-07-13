@@ -41,6 +41,11 @@ global MIN_CELL_COUNT       10    // suppress any count strictly below this
 global ROUND_SIGNIFICANT    3     // round numeric summaries to this many sig figs
 global MAX_CATEGORIES       20    // list category values only if distinct <= this
 global ID_LIKE_UNIQUE_RATIO 0.9   // distinct/non-missing above this => identifier
+
+* Column-name hints that mark a variable as a direct identifier (values and
+* distribution NEVER released), even when they repeat across a panel.
+global ID_NAME_HINTS "tpin taxpayer nrc ssn passport reference refno reg_no regno national_id"
+global ID_LARGE_INT_THRESHOLD 1e9 // advisory: flag integer cols this large with no 0/neg
 * ===========================================================================
 
 
@@ -73,6 +78,23 @@ program define safecount, rclass
     else {
         return local v = "`c'"
     }
+end
+
+capture program drop id_by_name
+program define id_by_name, rclass
+    * return r(hit)=1 if the column NAME looks like a direct identifier
+    args name
+    local n = lower("`name'")
+    local hit 0
+    foreach h of global ID_NAME_HINTS {
+        if (strpos("`n'", "`h'") > 0) local hit 1
+    }
+    if (strpos("`n'", "_id")  > 0) local hit 1
+    if (strpos("`n'", "id_")  > 0) local hit 1
+    if (strpos("`n'", "_tin") > 0) local hit 1
+    if (strpos("`n'", "tin_") > 0) local hit 1
+    if (inlist("`n'", "id", "tin", "tpin", "uid", "nrc", "ssn", "pin", "brn", "uin")) local hit 1
+    return local hit = `hit'
 end
 
 capture program drop write_categories
@@ -217,6 +239,10 @@ foreach var of local allvars {
         }
     }
 
+    * does the column NAME look like a direct identifier?
+    id_by_name "`var'"
+    local id_hit = r(hit)
+
     * ---- classify ----
     local kind ""
     local is_int 0
@@ -225,6 +251,10 @@ foreach var of local allvars {
     }
     else if (`is_numeric' & `isdate') {
         local kind "datetime"
+    }
+    else if (`id_hit') {
+        * name marks a direct identifier: withhold regardless of cardinality
+        local kind "identifier"
     }
     else if (`is_numeric') {
         quietly count if `var' != floor(`var') & !missing(`var')
@@ -349,6 +379,18 @@ foreach var of local allvars {
             }
             file write `fh' "  quantiles       :`qline'" _n
             file write `fh' "  note            : Exact min/max withheld; range shown is rounded p1-p99. All numeric summaries rounded to $ROUND_SIGNIFICANT significant figures." _n
+
+            * advisory: uniformly huge integers with no 0/neg look like an identifier
+            if (`is_int') {
+                quietly count if `var' == 0 & !missing(`var')
+                local a_nz = r(N)
+                quietly count if `var' < 0 & !missing(`var')
+                local a_ng = r(N)
+                quietly summarize `var', meanonly
+                if (`a_nz' == 0 & `a_ng' == 0 & r(min) >= $ID_LARGE_INT_THRESHOLD) {
+                    file write `fh' "  note            : WARNING: integer column with uniformly large values and no zeros or negatives -- verify this is a genuine measure and not an identifier that should be withheld." _n
+                }
+            }
         }
     }
     else if ("`kind'" == "categorical") {
@@ -363,7 +405,12 @@ foreach var of local allvars {
         file write `fh' "  distinct values : `nd'" _n
         local uniq = (`nd' == `n_obs')
         file write `fh' "  unique per row  : `uniq'" _n
-        file write `fh' "  note            : High-cardinality / identifier-like column: individual values NOT listed." _n
+        if (`id_hit') {
+            file write `fh' "  note            : Column name matches an identifier pattern; treated as a direct identifier -- values and distribution (mean/quantiles) NOT released." _n
+        }
+        else {
+            file write `fh' "  note            : High-cardinality / identifier-like column: individual values NOT listed." _n
+        }
     }
 }
 

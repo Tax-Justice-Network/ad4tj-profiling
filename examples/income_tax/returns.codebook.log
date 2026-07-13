@@ -19,19 +19,13 @@ still review it against local disclosure policy before release.
 
 ----------------------------------------------------------------------------
 VARIABLE: taxpayer_id
-  kind            : numeric
+  kind            : identifier
   storage dtype   : int64
   non-missing     : 24000
   missing         : 0 (0.0%)
-  integer-valued  : True
-  # zero          : 0
-  # negative      : 0
-  # positive      : 24000
-  mean (rounded)  : 2000.0
-  sd (rounded)    : 1150.0
-  approx range    : 41.0 .. 3960.0  (rounded p1-p99)
-  quantiles       : p1=41.0  p5=201.0  p10=401.0  p25=1000.0  p50=2000.0  p75=3000.0  p90=3600.0  p95=3800.0  p99=3960.0
-  note            : Exact min/max withheld; range shown is rounded p1-p99. All numeric summaries rounded to 3 significant figures.
+  distinct values : 4000
+  unique per row  : False
+  note            : Column name matches an identifier pattern; treated as a direct identifier -- values and distribution (mean/quantiles) NOT released.
 ----------------------------------------------------------------------------
 VARIABLE: tax_year
   kind            : numeric

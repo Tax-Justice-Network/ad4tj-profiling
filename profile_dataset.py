@@ -43,11 +43,21 @@ MIN_CELL_COUNT = 10        # suppress any count strictly below this
 ROUND_SIGNIFICANT = 3      # round numeric summaries to this many significant figures
 MAX_CATEGORIES = 20        # list category values only if distinct count <= this
 ID_LIKE_UNIQUE_RATIO = 0.9 # distinct/non-missing above this => treat as identifier
+
+# Column-name hints that mark a variable as a direct identifier (its values and
+# its distribution are NEVER released), even when the values repeat across a
+# panel -- e.g. a taxpayer ID that appears in every period. Case-insensitive.
+ID_NAME_HINTS = ("tpin", "taxpayer", "nrc", "ssn", "passport",
+                 "reference", "refno", "reg_no", "regno", "national_id")
+# Advisory only (does not reclassify): warn when an integer column's values are
+# all this large and never zero/negative -- a tell-tale of an ID, not a measure.
+ID_LARGE_INT_THRESHOLD = 1e9
 # ===========================================================================
 
 
 import math
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Any
@@ -72,6 +82,27 @@ class Config:
     round_significant: int = ROUND_SIGNIFICANT
     max_categories: int = MAX_CATEGORIES
     id_like_unique_ratio: float = ID_LIKE_UNIQUE_RATIO
+    id_name_hints: tuple[str, ...] = ID_NAME_HINTS
+    id_large_int_threshold: float = ID_LARGE_INT_THRESHOLD
+
+
+# Exact name-tokens and end-of-token forms that denote a direct identifier.
+_ID_NAME_TOKENS = {"tin", "tpin", "tpn", "id", "uid", "guid", "nrc", "ssn", "pin", "brn", "uin"}
+_ID_FALSE_FRIENDS = {"valid", "invalid", "solid", "rapid", "humid", "rigid", "fluid",
+                     "hybrid", "candid", "stupid", "liquid", "placid", "florid", "putrid"}
+
+
+def looks_like_identifier_name(name: str, cfg: Config) -> bool:
+    """True if a column name looks like a direct identifier (taxpayer ID, TIN,
+    reference number, ...). Catches panel IDs that repeat across periods and so
+    are missed by the near-unique test."""
+    n = name.lower()
+    tokens = set(re.split(r"[^a-z0-9]+", n))
+    if tokens & _ID_NAME_TOKENS:
+        return True
+    if any(len(t) >= 5 and t.endswith("id") and t not in _ID_FALSE_FRIENDS for t in tokens):
+        return True
+    return any(h in n for h in cfg.id_name_hints)
 
 
 @dataclass
@@ -146,6 +177,13 @@ def read_data(path: str) -> pd.DataFrame:
 def _classify(series: pd.Series, n_obs: int, cfg: Config) -> str:
     if n_obs == 0:
         return "empty"
+    # A column whose NAME marks it as a direct identifier is withheld regardless
+    # of cardinality (so panel IDs like a taxpayer TPIN never get profiled as a
+    # measure). Dates are exempt so a date is still summarised as a date.
+    if looks_like_identifier_name(str(series.name), cfg) and not (
+        pd.api.types.is_datetime64_any_dtype(series)
+    ):
+        return "identifier"
     if pd.api.types.is_bool_dtype(series):
         return "boolean"
     if pd.api.types.is_datetime64_any_dtype(series):
@@ -247,6 +285,21 @@ def _profile_numeric(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
         f"{sig} significant figures."
     )
 
+    # Advisory: an integer column with uniformly huge values and no zeros or
+    # negatives is very likely an identifier (e.g. a taxpayer ID) that slipped
+    # the name test, not a measure. Flag it for the reviewer; do not reclassify.
+    if (
+        is_int_like
+        and np.sum(arr == 0) == 0
+        and np.sum(arr < 0) == 0
+        and float(np.min(arr)) >= cfg.id_large_int_threshold
+    ):
+        rep.notes.append(
+            "WARNING: integer column with uniformly large values and no zeros or "
+            "negatives -- verify this is a genuine measure and not an identifier "
+            "that should be withheld."
+        )
+
 
 def _profile_boolean(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
     n_true = int(s.sum())
@@ -306,9 +359,15 @@ def _profile_identifier(s: pd.Series, rep: ColumnReport, cfg: Config) -> None:
     n_distinct = int(s.nunique())
     rep.facts["n_distinct"] = n_distinct
     rep.facts["looks_unique"] = bool(n_distinct == rep.n_obs)
-    rep.notes.append(
-        "High-cardinality / identifier-like column: individual values NOT listed."
-    )
+    if looks_like_identifier_name(rep.name, cfg):
+        rep.notes.append(
+            "Column name matches an identifier pattern; treated as a direct "
+            "identifier -- values and distribution (mean/quantiles) NOT released."
+        )
+    else:
+        rep.notes.append(
+            "High-cardinality / identifier-like column: individual values NOT listed."
+        )
 
 
 # ---------------------------------------------------------------------------

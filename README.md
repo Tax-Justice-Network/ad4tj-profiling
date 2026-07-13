@@ -68,10 +68,18 @@ that the log can be released. By default:
 | No exact extremes | min/max **never** released | the maximum income *is* one real person's income |
 | Rounding | 3 significant figures | so no released number equals an exact record |
 | Category listing | only if ≤ 20 distinct values | high-cardinality columns leak |
-| Identifier columns | values never listed | IDs, names, free text are not aggregated |
+| Identifier columns | values **and** distribution never released | IDs, names, free text are not aggregated |
+| Identifier-by-name | `tpin`/`tin`/`id`/… forced to identifier | catches a taxpayer ID that repeats every period in a panel |
 
-All five thresholds are set in the **CONFIG block at the top of each script** and
-are printed into every codebook so a reviewer can see exactly what was applied.
+The thresholds are set in the **CONFIG block at the top of each script** and are
+printed into every codebook so a reviewer can see exactly what was applied.
+
+**What the tool does _not_ do — the dominance rule.** These are frequency-style
+controls (suppression, rounding, no extremes). They do **not** implement the
+*dominance / p-percent rule* for magnitude data: for a value variable with few
+nonzero contributors dominated by one large taxpayer, the released mean can
+approximate that taxpayer's magnitude. Assessing dominance on sparse value fields
+is part of the **mandatory human review**, not something the tool guarantees.
 
 See **[SPEC.md](SPEC.md)** for the codebook format and the normative SDC rules.
 

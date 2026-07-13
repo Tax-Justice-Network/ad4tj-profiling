@@ -25,7 +25,7 @@ VARIABLE: taxpayer_id
   missing         : 0 (0.0%)
   distinct values : 4000
   unique per row  : True
-  note            : High-cardinality / identifier-like column: individual values NOT listed.
+  note            : Column name matches an identifier pattern; treated as a direct identifier -- values and distribution (mean/quantiles) NOT released.
 ----------------------------------------------------------------------------
 VARIABLE: birth_year
   kind            : numeric

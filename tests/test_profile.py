@@ -12,6 +12,7 @@ import pytest
 import profile_dataset as pds
 from profile_dataset import (
     Config,
+    looks_like_identifier_name,
     profile_column,
     profile_dataframe,
     render_log,
@@ -58,6 +59,30 @@ def test_low_cardinality_integer_is_coded_categorical():
     assert rep.kind == "numeric"
     assert rep.facts.get("looks_coded_categorical") is True
     assert set(rep.facts["categories"]) == {"1", "2", "3", "4"}
+
+
+def test_panel_taxpayer_id_is_identifier_not_measure():
+    # r_tpin from the ZRA data: a 12-digit taxpayer ID repeating across a panel.
+    # Distinct/rows is low (IDs repeat), so the near-unique test misses it; the
+    # name test must still classify it as an identifier and withhold its stats.
+    rng = np.random.default_rng(7)
+    ids = rng.integers(122_000_000_000, 353_000_000_000, size=500)
+    panel = pd.Series(np.repeat(ids, 12), name="r_tpin")  # 12 periods each
+    rep = profile_column(panel, Config())
+    assert rep.kind == "identifier"
+    assert "mean" not in rep.facts
+    assert "quantiles_rounded" not in rep.facts
+    log = render_log(profile_dataframe(pd.DataFrame({"r_tpin": panel}), "t", "t"))
+    assert "122000000000" not in log      # no TPIN-range figures leak
+    assert any("identifier pattern" in n for n in rep.notes)
+
+
+def test_identifier_name_variants_and_false_friends():
+    cfg = Config()
+    for name in ["tin", "r_tpin", "taxpayer_id", "firm_id", "nrc", "national_id", "ReturnID"]:
+        assert looks_like_identifier_name(name, cfg), name
+    for name in ["valid_flag", "gross_income", "region_code", "rapid_ratio", "tax_due"]:
+        assert not looks_like_identifier_name(name, cfg), name
 
 
 def test_continuous_float_stays_numeric():

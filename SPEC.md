@@ -77,7 +77,7 @@ inferred from the data alone (no external documentation is required).
 | `high_cardinality` | non-numeric, > `MAX_CATEGORIES` distinct but not near-unique | distinct count only; values **never** listed |
 | `boolean` | logical/boolean dtype | # true / # false (suppressed) |
 | `datetime` | date/time dtype | distinct dates; **calendar-year span only** |
-| `identifier` | integer near-unique, **or** non-numeric near-unique | distinct count; unique-per-row flag; values **never** listed |
+| `identifier` | name matches an ID pattern, **or** integer near-unique, **or** non-numeric near-unique | distinct count; unique-per-row flag; values and distribution **never** released |
 | `empty` | entirely missing | note only |
 
 **Value-listing rule.** Individual category values are enumerated **only** when a
@@ -88,6 +88,15 @@ near-unique — distinct/non-missing ≥ `ID_LIKE_UNIQUE_RATIO` — in which cas
 an `identifier` (IDs, names, free text). Neither has its values listed. A numeric
 column is an identifier when it is integer-valued **and** either fully unique or
 has a distinct/non-missing ratio above `ID_LIKE_UNIQUE_RATIO`.
+
+**Direct identifiers by name.** A column whose *name* matches a configurable
+identifier pattern (`ID_NAME_HINTS` plus tokens such as `id`, `tin`, `tpin`,
+`nrc`) MUST be classified as an `identifier` **regardless of cardinality**, and
+its distribution (mean/quantiles) MUST NOT be released. This catches direct
+identifiers — e.g. a taxpayer ID — that repeat across a panel and so are missed
+by the near-unique test. Implementations SHOULD additionally flag (without
+reclassifying) any integer column whose values are uniformly large and never
+zero or negative, as a likely un-named identifier for the reviewer to check.
 
 **Coded categoricals.** Integer columns with few distinct values (sex, region,
 filing status, year, …) are almost always code lists. The codebook reports the
@@ -134,6 +143,24 @@ configurable but their defaults are the recommended floor.
    and each suppression MUST leave a visible marker or note, so a reviewer can
    audit what was withheld.
 
+9. **Direct-identifier withholding.** A column classified `identifier` — including
+   one matched by name (§3) — MUST NOT release its values *or* its distribution
+   (mean, standard deviation, quantiles). Only its distinct count and a
+   unique-per-row flag MAY be reported.
+
+### 4.1 Not covered: the dominance rule for magnitude data
+
+These rules implement **frequency-style** disclosure control (cell suppression,
+rounding, no exact extremes). They do **not** implement the **dominance /
+p-percent rule** that tax administrations typically apply to *magnitude* data. A
+released mean multiplied by the number of contributors approximates a total, and
+for a value variable with **few nonzero contributors dominated by one large
+taxpayer** (common in tax microdata — e.g. a single dominant firm's foreign
+income), that taxpayer's magnitude could in principle be inferred, even though no
+exact value is printed. Rounding and withholding extremes reduce but do not
+eliminate this. Assessing dominance on sparse magnitude variables is therefore
+**part of the mandatory human review** (§1), not something the tool guarantees.
+
 ---
 
 ## 5. Configuration parameters
@@ -144,6 +171,7 @@ configurable but their defaults are the recommended floor.
 | `ROUND_SIGNIFICANT` | 3 | significant figures for numeric summaries |
 | `MAX_CATEGORIES` | 20 | list category values only at/below this distinct count |
 | `ID_LIKE_UNIQUE_RATIO` | 0.9 | distinct/non-missing above this ⇒ identifier |
+| `ID_NAME_HINTS` | tpin, taxpayer, tin, id, … | column-name patterns forced to `identifier` |
 
 A lab MAY raise (more conservative) any threshold; lowering a threshold below the
 default SHOULD require explicit local justification.

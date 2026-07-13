@@ -40,9 +40,30 @@ MIN_CELL_COUNT       <- 10        # suppress any count strictly below this
 ROUND_SIGNIFICANT    <- 3         # round numeric summaries to this many sig figs
 MAX_CATEGORIES       <- 20        # list category values only if distinct <= this
 ID_LIKE_UNIQUE_RATIO <- 0.9       # distinct/non-missing above this => identifier
+
+# Column-name hints that mark a variable as a direct identifier (values and
+# distribution NEVER released), even when they repeat across a panel. Lowercase.
+ID_NAME_HINTS         <- c("tpin", "taxpayer", "nrc", "ssn", "passport",
+                           "reference", "refno", "reg_no", "regno", "national_id")
+ID_LARGE_INT_THRESHOLD <- 1e9     # advisory: flag integer cols this large with no 0/neg
 # ===========================================================================
 
 SUPPRESSED <- "<suppressed (below min cell count)>"
+
+ID_NAME_TOKENS   <- c("tin", "tpin", "tpn", "id", "uid", "guid", "nrc", "ssn", "pin", "brn", "uin")
+ID_FALSE_FRIENDS <- c("valid", "invalid", "solid", "rapid", "humid", "rigid", "fluid",
+                      "hybrid", "candid", "stupid", "liquid", "placid", "florid", "putrid")
+
+looks_like_identifier_name <- function(name) {
+  n <- tolower(name)
+  tokens <- strsplit(n, "[^a-z0-9]+")[[1]]
+  tokens <- tokens[tokens != ""]
+  if (any(tokens %in% ID_NAME_TOKENS)) return(TRUE)
+  for (t in tokens) {
+    if (nchar(t) >= 5 && endsWith(t, "id") && !(t %in% ID_FALSE_FRIENDS)) return(TRUE)
+  }
+  any(vapply(ID_NAME_HINTS, function(h) grepl(h, n, fixed = TRUE), logical(1)))
+}
 
 
 # ---------------------------------------------------------------------------
@@ -91,8 +112,15 @@ read_data <- function(path) {
 # ---------------------------------------------------------------------------
 # Per-column profiling -> returns a list describing the column
 # ---------------------------------------------------------------------------
-classify <- function(x, n_obs) {
+classify <- function(x, n_obs, name) {
   if (n_obs == 0) return("empty")
+  # A column whose NAME marks it a direct identifier is withheld regardless of
+  # cardinality (so panel IDs like a taxpayer TPIN are never profiled as a
+  # measure). Dates are exempt so a date is still summarised as a date.
+  if (looks_like_identifier_name(name) &&
+      !(inherits(x, "Date") || inherits(x, "POSIXt"))) {
+    return("identifier")
+  }
   if (is.logical(x)) return("boolean")
   if (inherits(x, "Date") || inherits(x, "POSIXt")) return("datetime")
   if (is.numeric(x)) {
@@ -149,7 +177,7 @@ profile_column <- function(x, name) {
   n_missing <- n_total - n_obs
   pct_missing <- if (n_total > 0) round(100 * n_missing / n_total, 1) else 0
 
-  kind <- classify(x, n_obs)
+  kind <- classify(x, n_obs, name)
   rep <- list(name = name, kind = kind, storage_dtype = class(x)[1],
               n_obs = n_obs, n_missing = n_missing, pct_missing = pct_missing,
               notes = character(0))
@@ -192,6 +220,15 @@ profile_column <- function(x, name) {
       "All numeric summaries rounded to %d significant figures."),
       ROUND_SIGNIFICANT))
 
+    # Advisory: uniformly huge integers with no 0/neg look like an identifier.
+    if (is_int_like && sum(arr == 0) == 0 && sum(arr < 0) == 0 &&
+        min(arr) >= ID_LARGE_INT_THRESHOLD) {
+      rep$notes <- c(rep$notes, paste0(
+        "WARNING: integer column with uniformly large values and no zeros or ",
+        "negatives -- verify this is a genuine measure and not an identifier ",
+        "that should be withheld."))
+    }
+
   } else if (kind == "boolean") {
     n_true <- sum(nn)
     rep$n_true  <- safe_count(n_true)
@@ -218,8 +255,14 @@ profile_column <- function(x, name) {
     n_distinct <- length(unique(nn))
     rep$n_distinct <- n_distinct
     rep$looks_unique <- (n_distinct == n_obs)
-    rep$notes <- c(rep$notes,
-      "High-cardinality / identifier-like column: individual values NOT listed.")
+    if (looks_like_identifier_name(name)) {
+      rep$notes <- c(rep$notes, paste0(
+        "Column name matches an identifier pattern; treated as a direct identifier ",
+        "-- values and distribution (mean/quantiles) NOT released."))
+    } else {
+      rep$notes <- c(rep$notes,
+        "High-cardinality / identifier-like column: individual values NOT listed.")
+    }
   }
   rep
 }
