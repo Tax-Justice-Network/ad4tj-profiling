@@ -132,8 +132,16 @@ def test_exact_extremes_never_leak():
     assert "8675309" not in log          # exact max must never appear
     # the rounded summaries should be present though
     assert "approx range" in log
-    # the word min/max as exact figures should not be emitted as facts
-    assert "min " not in log.lower().replace("minimum", "")
+    # no fact line may report an exact minimum or maximum
+    fact_labels = [
+        ln.split(":")[0].strip().lower()
+        for ln in log.splitlines()
+        if ln.startswith("  ") and ":" in ln
+    ]
+    assert "min" not in fact_labels
+    assert "max" not in fact_labels
+    assert "minimum" not in fact_labels
+    assert "maximum" not in fact_labels
 
 
 def test_rare_category_value_is_suppressed():
